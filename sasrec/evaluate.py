@@ -4,8 +4,17 @@ from torch.nn.utils.rnn import pad_sequence
 
 
 @torch.no_grad()
-def evaluate(model, user_sequences, user_targets, num_items, max_length,
-             device, k=10, batch_size=256, filter_seen=True):
+def evaluate(
+    model,
+    user_sequences,
+    user_targets,
+    num_items,
+    max_length,
+    device,
+    k=10,
+    batch_size=256,
+    filter_seen=True,
+):
     model.eval()
 
     hit, ndcg, mrr = 0.0, 0.0, 0.0
@@ -13,7 +22,7 @@ def evaluate(model, user_sequences, user_targets, num_items, max_length,
 
     user_ids = list(user_targets.keys())
     for start in range(0, len(user_ids), batch_size):
-        batch_users = user_ids[start:start + batch_size]
+        batch_users = user_ids[start : start + batch_size]
 
         input_seqs = []
         targets = []
@@ -25,7 +34,9 @@ def evaluate(model, user_sequences, user_targets, num_items, max_length,
             targets.append(user_targets[uid])
             histories.append(set(seq))
 
-        input_ids = pad_sequence(input_seqs, batch_first=True, padding_value=0).to(device)
+        input_ids = pad_sequence(input_seqs, batch_first=True, padding_value=0).to(
+            device
+        )
 
         hidden = model(input_ids)
 
@@ -59,20 +70,38 @@ def evaluate(model, user_sequences, user_targets, num_items, max_length,
             print(f"  Evaluated {num_users}/{len(user_ids)} users...", flush=True)
 
     metrics = {
-        f'HR@{k}': hit / num_users,
-        f'NDCG@{k}': ndcg / num_users,
-        f'MRR@{k}': mrr / num_users,
+        f"HR@{k}": hit / num_users,
+        f"NDCG@{k}": ndcg / num_users,
+        f"MRR@{k}": mrr / num_users,
     }
     return metrics
 
 
 @torch.no_grad()
-def validate_fast(model, val_sequences, val_targets, num_items, max_length,
-                  device, k=10, batch_size=256, max_users=10000):
+def validate_fast(
+    model,
+    val_sequences,
+    val_targets,
+    num_items,
+    max_length,
+    device,
+    k=10,
+    batch_size=256,
+    max_users=10000,
+):
     user_ids = list(val_targets.keys())
     if len(user_ids) > max_users:
         user_ids = np.random.choice(user_ids, size=max_users, replace=False).tolist()
 
     subset_targets = {uid: val_targets[uid] for uid in user_ids}
-    return evaluate(model, val_sequences, subset_targets, num_items, max_length,
-                    device, k=k, batch_size=batch_size, filter_seen=True)
+    return evaluate(
+        model,
+        val_sequences,
+        subset_targets,
+        num_items,
+        max_length,
+        device,
+        k=k,
+        batch_size=batch_size,
+        filter_seen=True,
+    )

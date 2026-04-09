@@ -22,8 +22,16 @@ class PointWiseFeedForward(nn.Module):
 
 
 class SASRec(nn.Module):
-    def __init__(self, item_num, maxlen=200, hidden_units=256, num_blocks=2,
-                 num_heads=1, dropout_rate=0.1, initializer_range=0.02):
+    def __init__(
+        self,
+        item_num,
+        maxlen=200,
+        hidden_units=256,
+        num_blocks=2,
+        num_heads=1,
+        dropout_rate=0.1,
+        initializer_range=0.02,
+    ):
         super().__init__()
 
         self.item_num = item_num
@@ -47,7 +55,8 @@ class SASRec(nn.Module):
         for _ in range(num_blocks):
             self.attention_layernorms.append(nn.LayerNorm(hidden_units, eps=1e-8))
             self.attention_layers.append(
-                nn.MultiheadAttention(hidden_units, num_heads, dropout_rate))
+                nn.MultiheadAttention(hidden_units, num_heads, dropout_rate)
+            )
             self.forward_layernorms.append(nn.LayerNorm(hidden_units, eps=1e-8))
             self.forward_layers.append(PointWiseFeedForward(hidden_units, dropout_rate))
 
@@ -68,22 +77,28 @@ class SASRec(nn.Module):
 
     def forward(self, input_ids):
         seqs = self.item_emb(input_ids)
-        seqs *= self.hidden_units ** 0.5
+        seqs *= self.hidden_units**0.5
 
-        positions = torch.arange(input_ids.shape[1], device=input_ids.device).unsqueeze(0)
+        positions = torch.arange(input_ids.shape[1], device=input_ids.device).unsqueeze(
+            0
+        )
         seqs += self.pos_emb(positions)
         seqs = self.emb_dropout(seqs)
 
-        timeline_mask = (input_ids == 0)
+        timeline_mask = input_ids == 0
         seqs = seqs * (~timeline_mask).unsqueeze(-1).float()
 
         tl = seqs.shape[1]
-        attn_mask = ~torch.tril(torch.ones((tl, tl), dtype=torch.bool, device=seqs.device))
+        attn_mask = ~torch.tril(
+            torch.ones((tl, tl), dtype=torch.bool, device=seqs.device)
+        )
 
         for i in range(self.num_blocks):
             seqs_t = seqs.transpose(0, 1)
             Q = self.attention_layernorms[i](seqs_t)
-            mha_out, _ = self.attention_layers[i](Q, seqs_t, seqs_t, attn_mask=attn_mask)
+            mha_out, _ = self.attention_layers[i](
+                Q, seqs_t, seqs_t, attn_mask=attn_mask
+            )
             seqs_t = Q + mha_out
             seqs = seqs_t.transpose(0, 1)
 

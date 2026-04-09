@@ -22,9 +22,17 @@ class PointWiseFeedForward(nn.Module):
 
 
 class SASRecReasoning(nn.Module):
-    def __init__(self, item_num, maxlen=200, hidden_units=256, num_blocks=2,
-                 num_heads=1, dropout_rate=0.1, initializer_range=0.02,
-                 reason_steps=2):
+    def __init__(
+        self,
+        item_num,
+        maxlen=200,
+        hidden_units=256,
+        num_blocks=2,
+        num_heads=1,
+        dropout_rate=0.1,
+        initializer_range=0.02,
+        reason_steps=2,
+    ):
         super().__init__()
 
         self.item_num = item_num
@@ -49,7 +57,8 @@ class SASRecReasoning(nn.Module):
         for _ in range(num_blocks):
             self.attention_layernorms.append(nn.LayerNorm(hidden_units, eps=1e-8))
             self.attention_layers.append(
-                nn.MultiheadAttention(hidden_units, num_heads, dropout_rate))
+                nn.MultiheadAttention(hidden_units, num_heads, dropout_rate)
+            )
             self.forward_layernorms.append(nn.LayerNorm(hidden_units, eps=1e-8))
             self.forward_layers.append(PointWiseFeedForward(hidden_units, dropout_rate))
 
@@ -84,7 +93,8 @@ class SASRecReasoning(nn.Module):
             V_full = seqs_t
 
         mha_out, _ = self.attention_layers[block_idx](
-            Q, K_full, V_full, attn_mask=attn_mask)
+            Q, K_full, V_full, attn_mask=attn_mask
+        )
         seqs_t = Q + mha_out
         seqs = seqs_t.transpose(0, 1)
 
@@ -96,17 +106,21 @@ class SASRecReasoning(nn.Module):
 
     def encode_base(self, input_ids):
         seqs = self.item_emb(input_ids)
-        seqs *= self.hidden_units ** 0.5
+        seqs *= self.hidden_units**0.5
 
-        positions = torch.arange(input_ids.shape[1], device=input_ids.device).unsqueeze(0)
+        positions = torch.arange(input_ids.shape[1], device=input_ids.device).unsqueeze(
+            0
+        )
         seqs += self.pos_emb(positions)
         seqs = self.emb_dropout(seqs)
 
-        timeline_mask = (input_ids == 0)
+        timeline_mask = input_ids == 0
         seqs = seqs * (~timeline_mask).unsqueeze(-1).float()
 
         tl = seqs.shape[1]
-        attn_mask = ~torch.tril(torch.ones((tl, tl), dtype=torch.bool, device=seqs.device))
+        attn_mask = ~torch.tril(
+            torch.ones((tl, tl), dtype=torch.bool, device=seqs.device)
+        )
 
         kv_caches = []
         for i in range(self.num_blocks):
@@ -118,8 +132,7 @@ class SASRecReasoning(nn.Module):
         return seqs, kv_caches
 
     def reasoning_step(self, last_hidden, step_idx, kv_caches):
-        rpe = self.reason_pos_emb(
-            torch.tensor([step_idx], device=last_hidden.device))
+        rpe = self.reason_pos_emb(torch.tensor([step_idx], device=last_hidden.device))
         token = last_hidden + rpe.unsqueeze(0)
 
         seqs = token
@@ -128,10 +141,11 @@ class SASRecReasoning(nn.Module):
         for i in range(self.num_blocks):
             cached_k, cached_v = kv_caches[i]
             full_len = cached_k.shape[0] + 1
-            attn_mask = torch.zeros((1, full_len), dtype=torch.bool,
-                                    device=seqs.device)
+            attn_mask = torch.zeros((1, full_len), dtype=torch.bool, device=seqs.device)
 
-            seqs, new_kv = self._forward_block(seqs, attn_mask, i, kv_cache=kv_caches[i])
+            seqs, new_kv = self._forward_block(
+                seqs, attn_mask, i, kv_cache=kv_caches[i]
+            )
             new_kv_caches.append(new_kv)
 
         seqs = self.last_layernorm(seqs)

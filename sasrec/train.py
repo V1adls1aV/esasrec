@@ -6,20 +6,20 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
-from sasrec.model import SASRec
 from sasrec.data import (
+    CausalLMDataset,
+    PaddingCollateFn,
     download_and_preprocess,
     load_data,
     split_leave_one_out,
-    CausalLMDataset,
-    PaddingCollateFn,
-)
-from sasrec.losses import (
-    compute_sampled_ce_loss,
-    compute_sampled_bce_loss,
-    compute_full_softmax_loss,
 )
 from sasrec.evaluate import evaluate, validate_fast
+from sasrec.losses import (
+    compute_full_softmax_loss,
+    compute_sampled_bce_loss,
+    compute_sampled_ce_loss,
+)
+from sasrec.model import SASRec
 
 
 def load_checkpoint(path, device):
@@ -116,7 +116,7 @@ def main():
             dataset_name=args.dataset, output_dir=args.data_dir
         )
 
-    print(f"\nConfig:")
+    print("\nConfig:")
     for k, v in vars(args).items():
         print(f"  {k}: {v}")
     print()
@@ -198,7 +198,7 @@ def main():
 
     start_time = time.time()
 
-    for epoch in range(start_epoch, start_epoch + args.max_epochs + 1):
+    for epoch in range(start_epoch, start_epoch + args.max_epochs):
         epoch_start = time.time()
 
         avg_loss = train_one_epoch(
@@ -248,7 +248,7 @@ def main():
             marker = ""
 
         print(
-            f"Epoch {epoch:3d}/{args.max_epochs} | "
+            f"Epoch {epoch:3d}/{start_epoch + args.max_epochs} | "
             f"Loss: {avg_loss:.4f} | "
             f"Val HR@10: {val_hr:.4f} | "
             f"Val NDCG@10: {val_ndcg:.4f} | "
@@ -289,7 +289,7 @@ def main():
         for name, value in test_metrics.items():
             print(f"  {name}: {value:.4f}")
 
-    print(f"\n--- Validation metrics @10 (best model) ---")
+    print("\n--- Validation metrics @10 (best model) ---")
     val_final = evaluate(
         model,
         val_sequences,

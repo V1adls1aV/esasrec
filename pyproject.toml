@@ -25,3 +25,31 @@ url = "https://download.pytorch.org/whl/cu124"
 dev = [
     "ruff>=0.15.10",
 ]
+
+[tool.ruff.lint]
+fixable = ["ALL"]
+
+ignore = [
+    "ARG001", # allow passing and not using parameters (for authorization requrements)
+    "ANN002", # allow missing annotation for *args
+    "ANN003", # allow missing annotation for **kwargs
+    "ANN201", # allow missing function return type annotation
+    "N818", # do not enforce "Error" suffix for custom exceptions
+    "N999", # do not enforce snake_case module names
+    "RUF001", # do not warn about ambiguous characters in strings
+    "RUF002", # do not warn about ambiguous characters in docstrings
+    "FBT001", # boolean function parameters
+    "FBT002", # default boolean parameters
+    "F401", # imported but unused
+]
+
+# Allow unused variables when underscore-prefixed.
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[tool.ruff.lint.isort]
+split-on-trailing-comma = false
+
+[tool.ruff.format]
+line-ending = "lf"
+skip-magic-trailing-comma = true
+

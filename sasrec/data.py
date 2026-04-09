@@ -5,27 +5,28 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import torch
-from torch.utils.data import Dataset
 from torch.nn.utils.rnn import pad_sequence
-
+from torch.utils.data import Dataset
 
 MOVIELENS_URLS = {
-    'ml-1m':  'https://files.grouplens.org/datasets/movielens/ml-1m.zip',
-    'ml-20m': 'https://files.grouplens.org/datasets/movielens/ml-20m.zip',
+    "ml-1m": "https://files.grouplens.org/datasets/movielens/ml-1m.zip",
+    "ml-20m": "https://files.grouplens.org/datasets/movielens/ml-20m.zip",
 }
 
 
-def download_and_preprocess(dataset_name='ml-20m', output_dir='data', min_interactions=5):
+def download_and_preprocess(
+    dataset_name="ml-20m", output_dir="data", min_interactions=5
+):
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / f'{dataset_name}.txt'
+    output_path = output_dir / f"{dataset_name}.txt"
 
     if output_path.exists():
         print(f"Preprocessed data already exists: {output_path}")
         return str(output_path)
 
     url = MOVIELENS_URLS[dataset_name]
-    zip_path = output_dir / f'{dataset_name}.zip'
+    zip_path = output_dir / f"{dataset_name}.zip"
 
     if not zip_path.exists():
         print(f"Downloading {dataset_name} from {url} ...")
@@ -34,49 +35,51 @@ def download_and_preprocess(dataset_name='ml-20m', output_dir='data', min_intera
     else:
         print(f"Zip already downloaded: {zip_path}")
 
-    print(f"Extracting ratings...")
-    with zipfile.ZipFile(zip_path, 'r') as zf:
-        if dataset_name == 'ml-1m':
-            ratings_file = 'ml-1m/ratings.dat'
+    print("Extracting ratings...")
+    with zipfile.ZipFile(zip_path, "r") as zf:
+        if dataset_name == "ml-1m":
+            ratings_file = "ml-1m/ratings.dat"
         else:
-            ratings_file = 'ml-20m/ratings.csv'
+            ratings_file = "ml-20m/ratings.csv"
         zf.extract(ratings_file, output_dir)
 
-    print(f"Loading ratings...")
-    if dataset_name == 'ml-1m':
+    print("Loading ratings...")
+    if dataset_name == "ml-1m":
         df = pd.read_csv(
-            output_dir / ratings_file, sep='::', header=None,
-            names=['user_id', 'item_id', 'rating', 'timestamp'],
-            engine='python')
+            output_dir / ratings_file,
+            sep="::",
+            header=None,
+            names=["user_id", "item_id", "rating", "timestamp"],
+            engine="python",
+        )
     else:
         df = pd.read_csv(output_dir / ratings_file)
-        df.columns = ['user_id', 'item_id', 'rating', 'timestamp']
+        df.columns = ["user_id", "item_id", "rating", "timestamp"]
 
     print(f"  Raw ratings: {len(df):,}")
     print(f"  Raw users: {df['user_id'].nunique():,}")
     print(f"  Raw items: {df['item_id'].nunique():,}")
 
-    df = df.sort_values(['user_id', 'timestamp'])
+    df = df.sort_values(["user_id", "timestamp"])
 
-    user_counts = df.groupby('user_id').size()
+    user_counts = df.groupby("user_id").size()
     valid_users = user_counts[user_counts >= min_interactions].index
-    df = df[df['user_id'].isin(valid_users)]
+    df = df[df["user_id"].isin(valid_users)]
     print(f"  After filtering users with <{min_interactions} interactions:")
     print(f"    Interactions: {len(df):,}")
     print(f"    Users: {df['user_id'].nunique():,}")
     print(f"    Items: {df['item_id'].nunique():,}")
 
-    user_map = {uid: idx + 1 for idx, uid in enumerate(df['user_id'].unique())}
-    item_map = {iid: idx + 1 for idx, iid in enumerate(df['item_id'].unique())}
-    df['user_id'] = df['user_id'].map(user_map)
-    df['item_id'] = df['item_id'].map(item_map)
+    user_map = {uid: idx + 1 for idx, uid in enumerate(df["user_id"].unique())}
+    item_map = {iid: idx + 1 for idx, iid in enumerate(df["item_id"].unique())}
+    df["user_id"] = df["user_id"].map(user_map)
+    df["item_id"] = df["item_id"].map(item_map)
 
     print(f"Writing preprocessed data to {output_path} ...")
-    with open(output_path, 'w') as f:
-        for _, row in df.iterrows():
-            f.write(f"{row['user_id']} {row['item_id']}\n")
+    with open(output_path, "w") as f:
+        f.writelines(f"{row['user_id']} {row['item_id']}\n" for _, row in df.iterrows())
 
-    print(f"  Done! Final stats:")
+    print("  Done! Final stats:")
     print(f"    Users: {df['user_id'].nunique():,}")
     print(f"    Items: {df['item_id'].max():,}")
     print(f"    Interactions: {len(df):,}")
@@ -86,15 +89,15 @@ def download_and_preprocess(dataset_name='ml-20m', output_dir='data', min_intera
 
 def load_data(data_path):
     print(f"Loading data from {data_path}...")
-    df = pd.read_csv(data_path, sep=' ', header=None, names=['user_id', 'item_id'])
+    df = pd.read_csv(data_path, sep=" ", header=None, names=["user_id", "item_id"])
 
     user_sequences = {
         int(uid): [int(x) for x in items]
-        for uid, items in df.groupby('user_id')['item_id'].agg(list).items()
+        for uid, items in df.groupby("user_id")["item_id"].agg(list).items()
     }
 
-    num_items = int(df['item_id'].max())
-    num_users = df['user_id'].nunique()
+    num_items = int(df["item_id"].max())
+    num_users = df["user_id"].nunique()
     num_interactions = len(df)
 
     print(f"  Users: {num_users:,}")
@@ -121,7 +124,9 @@ def split_leave_one_out(user_sequences):
         train_sequences[uid] = seq[:-2]
         test_sequences[uid] = seq[:-1]
 
-    val_sequences = {uid: seq[:-2] for uid, seq in user_sequences.items() if len(seq) >= 3}
+    val_sequences = {
+        uid: seq[:-2] for uid, seq in user_sequences.items() if len(seq) >= 3
+    }
 
     print(f"  Train users: {len(train_sequences):,}")
     print(f"  Val users:   {len(val_targets):,}")
@@ -131,9 +136,14 @@ def split_leave_one_out(user_sequences):
 
 
 class CausalLMDataset(Dataset):
-    def __init__(self, user_sequences, max_length=200,
-                 num_negatives=None, full_negative_sampling=True,
-                 num_items=None):
+    def __init__(
+        self,
+        user_sequences,
+        max_length=200,
+        num_negatives=None,
+        full_negative_sampling=True,
+        num_items=None,
+    ):
         self.user_sequences = user_sequences
         self.max_length = max_length
         self.num_negatives = num_negatives
@@ -150,15 +160,15 @@ class CausalLMDataset(Dataset):
         item_sequence = self.user_sequences[idx]
 
         if len(item_sequence) > self.max_length + 1:
-            item_sequence = item_sequence[-self.max_length - 1:]
+            item_sequence = item_sequence[-self.max_length - 1 :]
 
         input_ids = np.array(item_sequence[:-1], dtype=np.int64)
         labels = np.array(item_sequence[1:], dtype=np.int64)
 
-        result = {'input_ids': input_ids, 'labels': labels}
+        result = {"input_ids": input_ids, "labels": labels}
 
         if self.num_negatives:
-            result['negatives'] = self._sample_negatives(item_sequence)
+            result["negatives"] = self._sample_negatives(item_sequence)
 
         return result
 
@@ -170,18 +180,23 @@ class CausalLMDataset(Dataset):
             total = self.num_negatives * seq_len
             negs = []
             while len(negs) < total:
-                candidates = np.random.randint(1, self.num_items + 1, size=total - len(negs))
+                candidates = np.random.randint(
+                    1, self.num_items + 1, size=total - len(negs)
+                )
                 candidates = candidates[~np.isin(candidates, list(user_items_set))]
                 negs.extend(candidates.tolist())
-            negs = np.array(negs[:total], dtype=np.int64).reshape(seq_len, self.num_negatives)
+            negs = np.array(negs[:total], dtype=np.int64).reshape(
+                seq_len, self.num_negatives
+            )
         else:
             negs = []
             while len(negs) < self.num_negatives:
-                candidates = np.random.randint(1, self.num_items + 1,
-                                               size=self.num_negatives - len(negs))
+                candidates = np.random.randint(
+                    1, self.num_items + 1, size=self.num_negatives - len(negs)
+                )
                 candidates = candidates[~np.isin(candidates, list(user_items_set))]
                 negs.extend(candidates.tolist())
-            negs = np.array(negs[:self.num_negatives], dtype=np.int64)
+            negs = np.array(negs[: self.num_negatives], dtype=np.int64)
 
         return negs
 
@@ -197,7 +212,11 @@ class PaddingCollateFn:
             if np.isscalar(batch[0][key]):
                 collated[key] = torch.tensor([ex[key] for ex in batch])
                 continue
-            pad_val = self.labels_padding_value if key == 'labels' else self.padding_value
+            pad_val = (
+                self.labels_padding_value if key == "labels" else self.padding_value
+            )
             values = [torch.tensor(ex[key]) for ex in batch]
-            collated[key] = pad_sequence(values, batch_first=True, padding_value=pad_val)
+            collated[key] = pad_sequence(
+                values, batch_first=True, padding_value=pad_val
+            )
         return collated
