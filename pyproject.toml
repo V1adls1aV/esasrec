@@ -2,6 +2,26 @@
 name = "esasrec"
 version = "0.1.0"
 requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.24",
+    "nvidia-ml-py>=12",
+    "pandas>=2.0",
+    "torch>=2.1",
+    "tqdm>=4.66",
+    "wandb>=0.17",
+]
 
 [tool.setuptools]
 packages = ["esasrec"]
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu124" }
+
+[[tool.uv.index]]
+name = "pytorch-cu124"
+url = "https://download.pytorch.org/whl/cu124"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.15.10",
+]
