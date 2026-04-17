@@ -6,6 +6,7 @@ artifacts_1ep_s3rec/
 artifacts_gpu/
 artifacts_realistic/
 data/
+checkpoints/
 .ipynb_checkpoints/
 wandb/
 *.pt

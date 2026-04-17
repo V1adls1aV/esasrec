@@ -199,8 +199,10 @@ def main():
 
     start_time = time.time()
 
+    epoch_count = 0
     for epoch in range(start_epoch, start_epoch + args.max_epochs):
         epoch_start = time.time()
+        epoch_count += 1
 
         avg_loss = train_one_epoch(
             model,
@@ -262,6 +264,7 @@ def main():
 
     total_time = time.time() - start_time
     print(f"\nTotal training time: {total_time:.1f}s ({total_time / 60:.1f}min)")
+    print(f"\nMean training time: {total_time / epoch_count:.1f}s")
     print(f"Best validation NDCG@10: {best_ndcg:.4f}")
 
     print(f"\n{'=' * 70}")
@@ -276,6 +279,7 @@ def main():
 
     for k in args.top_k:
         print(f"\n--- Test metrics @{k} ---")
+        eval_time = time.time()
         test_metrics = evaluate(
             model,
             test_sequences,
@@ -289,6 +293,7 @@ def main():
         )
         for name, value in test_metrics.items():
             print(f"  {name}: {value:.4f}")
+        print(f"\nEvaluation time: {eval_time:.1f}s")
 
     print("\n--- Validation metrics @10 (best model) ---")
     val_final = evaluate(
