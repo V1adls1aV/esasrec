@@ -1,4 +1,5 @@
 import torch
+import torch.nn.functional as F
 import torch.nn as nn
 
 
@@ -21,17 +22,55 @@ class PointWiseFeedForward(nn.Module):
         return outputs
 
 
+class CausalLinearAttention(nn.Module):
+    def __init__(self, embed_dim, num_heads, dropout_rate=0.0):
+        super().__init__()
+        self.embed_dim = embed_dim
+        self.num_heads = num_heads
+        self.head_dim = embed_dim // num_heads
+        assert self.head_dim * num_heads == embed_dim, "embed_dim must be divisible by num_heads"
+
+        self.q_proj = nn.Linear(embed_dim, embed_dim)
+        self.k_proj = nn.Linear(embed_dim, embed_dim)
+        self.v_proj = nn.Linear(embed_dim, embed_dim)
+        self.out_proj = nn.Linear(embed_dim, embed_dim)
+        self.dropout = nn.Dropout(p=dropout_rate)
+
+    def feature_map(self, x):
+        return F.elu(x) + 1.0
+
+    def forward(self, query, key, value, **kwargs):
+        L, B, E = query.shape
+
+        Q = self.q_proj(query).view(L, B, self.num_heads, self.head_dim).permute(1, 2, 0, 3)
+        K = self.k_proj(key).view(L, B, self.num_heads, self.head_dim).permute(1, 2, 0, 3)
+        V = self.v_proj(value).view(L, B, self.num_heads, self.head_dim).permute(1, 2, 0, 3)
+
+        Q = self.feature_map(Q)
+        K = self.feature_map(K)
+
+        KV = torch.einsum("bhld,bhlm->bhldm", K, V)
+        KV_cumsum = torch.cumsum(KV, dim=2)
+
+        K_cumsum = torch.cumsum(K, dim=2)
+
+        num = torch.einsum("bhld,bhldm->bhlm", Q, KV_cumsum)
+        den = torch.einsum("bhld,bhld->bhl", Q, K_cumsum)
+
+        out = num / (den.unsqueeze(-1) + 1e-6)
+
+        out = out.permute(2, 0, 1, 3).contiguous().view(L, B, E)
+
+        out = self.out_proj(out)
+        out = self.dropout(out)
+
+        return out, None
+
+
 class SASRec(nn.Module):
-    def __init__(
-        self,
-        item_num,
-        maxlen=200,
-        hidden_units=256,
-        num_blocks=2,
-        num_heads=1,
-        dropout_rate=0.1,
-        initializer_range=0.02,
-    ):
+    def __init__(self, item_num, maxlen=800, hidden_units=256, num_blocks=2,
+                 num_heads=1, dropout_rate=0.1, initializer_range=0.02,
+                 attn_types=None):
         super().__init__()
 
         self.item_num = item_num
@@ -41,6 +80,12 @@ class SASRec(nn.Module):
         self.num_heads = num_heads
         self.dropout_rate = dropout_rate
         self.initializer_range = initializer_range
+
+        if attn_types is None:
+            self.attn_types = ['standard'] * num_blocks
+        else:
+            assert len(attn_types) == num_blocks, "Длина списка attn_types должна совпадать с num_blocks"
+            self.attn_types = attn_types
 
         self.item_emb = nn.Embedding(item_num + 1, hidden_units, padding_idx=0)
         self.pos_emb = nn.Embedding(maxlen, hidden_units)
@@ -52,11 +97,18 @@ class SASRec(nn.Module):
         self.forward_layers = nn.ModuleList()
         self.last_layernorm = nn.LayerNorm(hidden_units, eps=1e-8)
 
-        for _ in range(num_blocks):
+        for i in range(num_blocks):
             self.attention_layernorms.append(nn.LayerNorm(hidden_units, eps=1e-8))
-            self.attention_layers.append(
-                nn.MultiheadAttention(hidden_units, num_heads, dropout_rate)
-            )
+
+            if self.attn_types[i] == 'linear':
+                self.attention_layers.append(
+                    CausalLinearAttention(hidden_units, num_heads, dropout_rate)
+                )
+            else:
+                self.attention_layers.append(
+                    nn.MultiheadAttention(hidden_units, num_heads, dropout_rate)
+                )
+
             self.forward_layernorms.append(nn.LayerNorm(hidden_units, eps=1e-8))
             self.forward_layers.append(PointWiseFeedForward(hidden_units, dropout_rate))
 
@@ -77,28 +129,24 @@ class SASRec(nn.Module):
 
     def forward(self, input_ids):
         seqs = self.item_emb(input_ids)
-        seqs *= self.hidden_units**0.5
+        seqs *= self.hidden_units ** 0.5
 
-        positions = torch.arange(input_ids.shape[1], device=input_ids.device).unsqueeze(
-            0
-        )
+        positions = torch.arange(input_ids.shape[1], device=input_ids.device).unsqueeze(0)
         seqs += self.pos_emb(positions)
         seqs = self.emb_dropout(seqs)
 
-        timeline_mask = input_ids == 0
+        timeline_mask = (input_ids == 0)
         seqs = seqs * (~timeline_mask).unsqueeze(-1).float()
 
         tl = seqs.shape[1]
-        attn_mask = ~torch.tril(
-            torch.ones((tl, tl), dtype=torch.bool, device=seqs.device)
-        )
+        attn_mask = ~torch.tril(torch.ones((tl, tl), dtype=torch.bool, device=seqs.device))
 
         for i in range(self.num_blocks):
             seqs_t = seqs.transpose(0, 1)
             Q = self.attention_layernorms[i](seqs_t)
-            mha_out, _ = self.attention_layers[i](
-                Q, seqs_t, seqs_t, attn_mask=attn_mask
-            )
+
+            mha_out, _ = self.attention_layers[i](Q, seqs_t, seqs_t, attn_mask=attn_mask)
+
             seqs_t = Q + mha_out
             seqs = seqs_t.transpose(0, 1)
 
