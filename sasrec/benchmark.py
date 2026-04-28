@@ -133,7 +133,11 @@ if __name__ == "__main__":
     if args.device == "cuda" and not torch.cuda.is_available():
         args.device = "cpu"
 
-    attn_types = args.attn_types.split(",") if args.attn_types is not None else None
+    if args.attn_types is not None:
+        attn_types = args.attn_types.split(",")
+        args.num_blocks = len(attn_types)
+    else:
+        attn_types = ["standard"] * args.num_blocks
 
     model = SASRec(
         item_num=args.item_num,
@@ -150,19 +154,19 @@ if __name__ == "__main__":
     model.to(args.device)
     use_onnx = not args.no_onnx
 
-    print("\n" + "=" * 60)
-    print("SASRec Benchmark Configuration")
-    print("=" * 60)
+    print("\n" + "=" * 70)
+    print("SASRec Benchmark Script")
+    print("=" * 70 + "\n")
+    
     print(f"Mode         : {args.mode.upper()}")
     print(f"Device       : {args.device.upper()}")
     print(f"Use ONNX     : {use_onnx}")
-    print(f"Checkpoint   : {args.checkpoint or 'Random Initialization'}")
-    print(
-        f"Architecture : {args.num_blocks} blocks, {args.num_heads} heads, d={args.hidden_units}"
-    )
-    print(f"Context Len  : {args.max_length}")
-    print(f"Catalog Size : {args.item_num:,}")
-    print("=" * 60 + "\n")
+
+    print("\nConfig:")
+    for k, v in vars(args).items():
+        if k not in ["device", "mode", "no_onnx"]:
+            print(f"  {k}: {v}")
+    print()
 
     if use_onnx:
         onnx_file = "sasrec_model.onnx"

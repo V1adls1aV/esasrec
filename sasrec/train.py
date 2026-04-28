@@ -81,6 +81,12 @@ def parse_args():
     parser.add_argument("--num_heads", type=int, default=1)
     parser.add_argument("--dropout_rate", type=float, default=0.1)
     parser.add_argument("--max_length", type=int, default=200)
+    parser.add_argument(
+        "--attn_types",
+        type=str,
+        default=None,
+        help="Comma-separated attention types, e.g., 'standard,linear'. Implies num_blocks.",
+    )
 
     parser.add_argument(
         "--loss", type=str, default="cross_entropy", choices=["cross_entropy", "bce"]
@@ -156,6 +162,14 @@ def main():
         pin_memory=True,
     )
 
+    if args.attn_types is not None:
+        attn_types = args.attn_types.split(",")
+        if len(attn_types) != args.num_blocks:
+            print(f"Overwriting num_blocks from {args.num_blocks} to {len(attn_types)}")
+            args.num_blocks = len(attn_types)
+    else:
+        attn_types = ["standard"] * args.num_blocks
+
     model = SASRec(
         item_num=num_items,
         maxlen=args.max_length,
@@ -163,7 +177,7 @@ def main():
         num_blocks=args.num_blocks,
         num_heads=args.num_heads,
         dropout_rate=args.dropout_rate,
-        attn_types=["standard", "standard", "standard", "standard"],
+        attn_types=attn_types,
     ).to(device)
 
     num_params = sum(p.numel() for p in model.parameters())
