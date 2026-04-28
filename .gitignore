@@ -10,3 +10,4 @@ checkpoints/
 .ipynb_checkpoints/
 wandb/
 *.pt
+*.onnx

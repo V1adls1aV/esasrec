@@ -17,6 +17,10 @@ def evaluate(
 ):
     model.eval()
 
+    from sasrec.inference import SASRecPredictor
+
+    predictor = SASRecPredictor(model, device)
+
     hit, ndcg, mrr = 0.0, 0.0, 0.0
     num_users = 0
 
@@ -34,19 +38,10 @@ def evaluate(
             targets.append(user_targets[uid])
             histories.append(set(seq))
 
-        input_ids = pad_sequence(input_seqs, batch_first=True, padding_value=0).to(
-            device
-        )
+        input_ids = pad_sequence(input_seqs, batch_first=True, padding_value=0)
 
-        hidden = model(input_ids)
+        all_scores = predictor.predict(input_ids)
 
-        lengths = (input_ids != 0).sum(dim=1) - 1
-        rows = torch.arange(len(batch_users), device=device)
-        last_hidden = hidden[rows, lengths]
-
-        all_scores = torch.matmul(last_hidden, model.item_emb.weight.T)
-
-        all_scores = all_scores.cpu().numpy()
         for i, uid in enumerate(batch_users):
             scores = all_scores[i].copy()
             target = targets[i]

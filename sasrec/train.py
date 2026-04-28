@@ -163,7 +163,7 @@ def main():
         num_blocks=args.num_blocks,
         num_heads=args.num_heads,
         dropout_rate=args.dropout_rate,
-        attn_types=['standard', 'linear', 'standard', 'linear']
+        attn_types=["standard", "standard", "standard", "standard"],
     ).to(device)
 
     num_params = sum(p.numel() for p in model.parameters())

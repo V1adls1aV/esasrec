@@ -1,10 +1,13 @@
 [project]
 name = "esasrec"
 version = "0.1.0"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "numpy>=1.24",
     "nvidia-ml-py>=12",
+    "onnx>=1.21.0",
+    "onnxruntime>=1.25.1",
+    "onnxruntime-gpu>=1.25.1",
     "pandas>=2.0",
     "torch>=2.1",
     "tqdm>=4.66",
@@ -25,6 +28,9 @@ url = "https://download.pytorch.org/whl/cu124"
 dev = [
     "ruff>=0.15.10",
 ]
+
+# [tool.ruff]
+# line-length = 130
 
 [tool.ruff.lint]
 fixable = ["ALL"]
