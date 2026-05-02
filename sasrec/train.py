@@ -107,6 +107,7 @@ def parse_args():
     parser.add_argument("--save_dir", type=str, default="checkpoints")
     parser.add_argument("--resume_best", action="store_true")
     parser.add_argument("--resume_path", type=str, default=None)
+    parser.add_argument("--layers_mask", type=str, default=None)
 
     return parser.parse_args()
 
@@ -170,6 +171,13 @@ def main():
     else:
         attn_types = ["standard"] * args.num_blocks
 
+    if args.layers_mask is not None:
+        arguments = args.layers_mask.split(",")
+        layers_mask = arguments[0]
+        starting_epoch = int(arguments[1])
+    else:
+        layers_mask = None
+
     model = SASRec(
         item_num=num_items,
         maxlen=args.max_length,
@@ -178,6 +186,7 @@ def main():
         num_heads=args.num_heads,
         dropout_rate=args.dropout_rate,
         attn_types=attn_types,
+        layers_mask=layers_mask
     ).to(device)
 
     num_params = sum(p.numel() for p in model.parameters())
@@ -215,6 +224,13 @@ def main():
 
     epoch_count = 0
     for epoch in range(start_epoch, start_epoch + args.max_epochs):
+        print(layers_mask)
+        print(starting_epoch)
+        if layers_mask is not None and epoch == starting_epoch:
+            layers_mask = [int(jj) for jj in layers_mask.replace("0", "1")]
+            model.layers_mask = layers_mask
+            print(model.layers_mask)
+            print("Сменил маску солоев")
         epoch_start = time.time()
         epoch_count += 1
 

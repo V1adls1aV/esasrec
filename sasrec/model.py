@@ -92,6 +92,7 @@ class SASRec(nn.Module):
         dropout_rate=0.1,
         initializer_range=0.02,
         attn_types=None,
+        layers_mask=None
     ):
         super().__init__()
 
@@ -110,6 +111,10 @@ class SASRec(nn.Module):
                 "Длина списка attn_types должна совпадать с num_blocks"
             )
             self.attn_types = attn_types
+        if layers_mask is None:
+            self.layers_mask = [1] * num_blocks
+        else:
+            self.layers_mask = [int(i) for i in layers_mask]
 
         self.item_emb = nn.Embedding(item_num + 1, hidden_units, padding_idx=0)
         self.pos_emb = nn.Embedding(maxlen, hidden_units)
@@ -170,6 +175,8 @@ class SASRec(nn.Module):
         )
 
         for i in range(self.num_blocks):
+            if self.layers_mask[i] == 0:
+                continue
             seqs_t = seqs.transpose(0, 1)
             Q = self.attention_layernorms[i](seqs_t)
 
