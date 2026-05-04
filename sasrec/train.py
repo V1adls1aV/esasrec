@@ -186,7 +186,7 @@ def main():
         num_heads=args.num_heads,
         dropout_rate=args.dropout_rate,
         attn_types=attn_types,
-        layers_mask=layers_mask
+        layers_mask=layers_mask,
     ).to(device)
 
     num_params = sum(p.numel() for p in model.parameters())
@@ -224,13 +224,12 @@ def main():
 
     epoch_count = 0
     for epoch in range(start_epoch, start_epoch + args.max_epochs):
-        print(layers_mask)
-        print(starting_epoch)
         if layers_mask is not None and epoch == starting_epoch:
-            layers_mask = [int(jj) for jj in layers_mask.replace("0", "1")]
-            model.layers_mask = layers_mask
-            print(model.layers_mask)
-            print("Сменил маску солоев")
+            before = list(model.layers_mask)
+            model.layers_mask = layers_mask = [1] * model.num_blocks
+            print(
+                f"\nСменил маску слоев с {''.join(map(str, before))} на {''.join(map(str, model.layers_mask))}\n"
+            )
         epoch_start = time.time()
         epoch_count += 1
 
@@ -293,9 +292,10 @@ def main():
             break
 
     total_time = time.time() - start_time
-    print(f"\nTotal training time: {total_time:.1f}s ({total_time / 60:.1f}min)")
-    print(f"\nMean training time: {total_time / epoch_count:.1f}s")
-    print(f"Best validation NDCG@10: {best_ndcg:.4f}")
+    if epoch_count:
+        print(f"\nTotal training time: {total_time:.1f}s ({total_time / 60:.1f}min)")
+        print(f"\nMean training time: {total_time / epoch_count:.1f}s")
+        print(f"Best validation NDCG@10: {best_ndcg:.4f}")
 
     print(f"\n{'=' * 70}")
     print("Final evaluation on test set (full-catalog ranking)...")
@@ -323,7 +323,7 @@ def main():
         )
         for name, value in test_metrics.items():
             print(f"  {name}: {value:.4f}")
-        print(f"\nEvaluation time: {eval_time:.1f}s")
+        print(f"\nEvaluation time: {time.time() - eval_time:.1f}s")
 
     print("\n--- Validation metrics @10 (best model) ---")
     val_final = evaluate(
