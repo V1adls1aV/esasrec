@@ -2,6 +2,11 @@ import torch
 import torch.nn.functional as F
 import torch.nn as nn
 
+try:
+    from mamba_ssm import Mamba
+except ImportError:
+    Mamba = None
+
 
 class PointWiseFeedForward(nn.Module):
     def __init__(self, hidden_units, dropout_rate):
@@ -79,6 +84,19 @@ class CausalLinearAttention(nn.Module):
         out = self.dropout(out)
 
         return out, None
+    
+
+class MambaLayer(nn.Module):
+    def __init__(self, d_model):
+        super().__init__()
+        self.mamba = Mamba(d_model=d_model)
+
+    def forward(self, query, key, value, attn_mask=None, **kwargs):
+        x = query.transpose(0, 1)
+        out = self.mamba(x)
+        out = out.transpose(0, 1)
+        return out, None
+
 
 
 class SASRec(nn.Module):
@@ -92,7 +110,7 @@ class SASRec(nn.Module):
         dropout_rate=0.1,
         initializer_range=0.02,
         attn_types=None,
-        layers_mask=None
+        layers_mask=None,
     ):
         super().__init__()
 
@@ -129,13 +147,19 @@ class SASRec(nn.Module):
         for i in range(num_blocks):
             self.attention_layernorms.append(nn.LayerNorm(hidden_units, eps=1e-8))
 
-            if self.attn_types[i] == "linear":
+            if self.attn_types[i] in ("linear", "l"):
                 self.attention_layers.append(
                     CausalLinearAttention(hidden_units, num_heads, dropout_rate)
                 )
-            else:
+            elif self.attn_types[i] in ("mamba", "m"):
+                self.attention_layers.append(MambaLayer(hidden_units))
+            elif self.attn_types[i] in ("standard", "s"):
                 self.attention_layers.append(
                     nn.MultiheadAttention(hidden_units, num_heads, dropout_rate)
+                )
+            else:
+                raise ValueError(
+                    f"There is not attention of type <{self.attn_types[i]}>"
                 )
 
             self.forward_layernorms.append(nn.LayerNorm(hidden_units, eps=1e-8))
