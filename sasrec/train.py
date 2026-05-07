@@ -1,5 +1,7 @@
 import argparse
+import logging
 import os
+import sys
 import time
 
 import numpy as np
@@ -114,6 +116,17 @@ def parse_args():
 
 def main():
     args = parse_args()
+
+    os.makedirs(args.save_dir, exist_ok=True)
+    log_path = os.path.join(args.save_dir, "training.log")
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(message)s",
+        handlers=[logging.FileHandler(log_path), logging.StreamHandler(sys.stdout)],
+    )
+    print = logging.info
+
     print("=" * 70)
     print("SASRec+ Training Script")
     print("=" * 70)
@@ -126,7 +139,7 @@ def main():
     print("\nConfig:")
     for k, v in vars(args).items():
         print(f"  {k}: {v}")
-    print()
+    print("")
 
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
