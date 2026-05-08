@@ -84,7 +84,7 @@ class CausalLinearAttention(nn.Module):
         out = self.dropout(out)
 
         return out, None
-    
+
 
 class MambaLayer(nn.Module):
     def __init__(self, d_model):
@@ -96,7 +96,6 @@ class MambaLayer(nn.Module):
         out = self.mamba(x)
         out = out.transpose(0, 1)
         return out, None
-
 
 
 class SASRec(nn.Module):
@@ -151,7 +150,7 @@ class SASRec(nn.Module):
                 self.attention_layers.append(
                     CausalLinearAttention(hidden_units, num_heads, dropout_rate)
                 )
-            elif self.attn_types[i] in ("mamba", "m"):
+            elif self.attn_types[i] in ("mamba", "m", "mamba_noff", "mnff"):
                 self.attention_layers.append(MambaLayer(hidden_units))
             elif self.attn_types[i] in ("standard", "s"):
                 self.attention_layers.append(
@@ -162,8 +161,14 @@ class SASRec(nn.Module):
                     f"There is not attention of type <{self.attn_types[i]}>"
                 )
 
-            self.forward_layernorms.append(nn.LayerNorm(hidden_units, eps=1e-8))
-            self.forward_layers.append(PointWiseFeedForward(hidden_units, dropout_rate))
+            if self.attn_types[i] in ("mamba_noff", "mnff"):
+                self.forward_layernorms.append(nn.Identity())
+                self.forward_layers.append(nn.Identity())
+            else:
+                self.forward_layernorms.append(nn.LayerNorm(hidden_units, eps=1e-8))
+                self.forward_layers.append(
+                    PointWiseFeedForward(hidden_units, dropout_rate)
+                )
 
         self.apply(self._init_weights)
 

@@ -12,10 +12,16 @@ python -m sasrec.train --dataset ml-1m --max_epochs 1 --save_dir checkpoints/ml-
 
 ### Обучение
 
-Дефолтные блоки – standard (s). Так же есть выбор между linear (l), mamba (m) и fft.
+Дефолтные блоки – standard (s). Так же есть выбор между linear (l), mamba (m), mamba-noff (mnff) и fft.
 
 ```sh
 python3 -m sasrec.train --dataset ml-20m --attn_types s,s,s,s --layers_mask 1100,25 --num_heads 4 --num_negatives 256 --batch_size 2048 --device cuda --max_length 200 --save_dir checkpoints/base
+```
+
+Можно открепить процесс от текущего терминала, чтобы обучать ночью, например (в `errors.log` печатаются ошибки)
+
+```sh
+nohup python3 -m sasrec.train --dataset ml-20m --attn_types s,mnff,s,mnff --layers_mask 1100,20 --num_heads 4 --num_negatives 256 --batch_size 512 --device cuda --max_length 200 --save_dir checkpoints/mamba-new > /dev/null 2> checkpoints/errors.log &
 ```
 
 ### Бенчмаркинг
@@ -32,6 +38,9 @@ python3 -m sasrec.benchmark --attn_types s,s --num_heads 4 --max_length 200 --mo
 
 ### Mamba
 
+mamba (m) – Слой mamba вместо аттеншна, структура та же.  
+mamba-noff (mnff) – отключает feed-forward блоки после слоя mamba, поскольку у нее есть свой механизм, похожий на ff.
+
 Без рута пакеты иначе не поставишь
 
 ```sh
@@ -46,16 +55,12 @@ uv подтянет пакеты из корня проекта
 uv sync --group mamba
 ```
 
----
-
 ```sh
-nohup python3 -m sasrec.train --dataset ml-20m --attn_types s,m,s,m --layers_mask 1100,20 --num_heads 4 --num_negatives 256 --batch_size 256 --device cuda --max_length 200 --save_dir checkpoints/mamba-smsm-200 > checkpoints/train200.log 2>&1 &
-```
+nohup python3 -m sasrec.train --dataset ml-20m --attn_types m,m --layers_mask 1100,20 --num_heads 4 --num_negatives 256 --batch_size 512 --device cuda --max_length 200 --save_dir checkpoints/m-2 > /dev/null 2> checkpoints/errors_m2.log &
 
-```sh
-nohup python3 -m sasrec.train --dataset ml-20m --attn_types s,m,s,m --layers_mask 1100,20 --num_heads 4 --num_negatives 256 --batch_size 128 --device cuda --max_length 500 --save_dir checkpoints/mamba-smsm-500 > checkpoints/train500.log 2>&1 &
-```
+nohup python3 -m sasrec.train --dataset ml-20m --attn_types mnff,mnff --layers_mask 1100,20 --num_heads 4 --num_negatives 256 --batch_size 512 --device cuda --max_length 200 --save_dir checkpoints/mnff-2 > /dev/null 2> checkpoints/errors_mnff2.log &
 
-```sh
-python3 -m sasrec.benchmark --attn_types s,m,s,m --num_heads 4 --max_length 500 --mode latency --no-onnx
+nohup python3 -m sasrec.train --dataset ml-20m --attn_types m,m,m,m --layers_mask 1100,20 --num_heads 4 --num_negatives 256 --batch_size 512 --device cuda --max_length 200 --save_dir checkpoints/m-4 > /dev/null 2> checkpoints/errors_m4.log &
+
+nohup python3 -m sasrec.train --dataset ml-20m --attn_types m,mnff,m,mnff --layers_mask 1100,20 --num_heads 4 --num_negatives 256 --batch_size 512 --device cuda --max_length 200 --save_dir checkpoints/m-mnff-m-mnff > /dev/null 2> checkpoints/errors_m_mnff_m_mnff.log &
 ```

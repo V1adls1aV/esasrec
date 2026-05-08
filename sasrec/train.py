@@ -301,7 +301,7 @@ def main():
         )
 
         if epochs_no_improve >= args.patience:
-            print(f"\nEarly stopping at epoch {epoch} (patience={args.patience})")
+            print(f"\nEarly stopping at epoch {epoch - args.patience} (best result)")
             break
 
     total_time = time.time() - start_time

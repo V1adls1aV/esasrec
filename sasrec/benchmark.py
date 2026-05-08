@@ -29,7 +29,10 @@ def export_onnx(model, maxlen, batch_size, onnx_path):
     print("Exporting model to ONNX...")
     model.eval()
     wrapper = ONNXExportWrapper(model)
-    dummy_input = torch.randint(1, 100, (batch_size, maxlen), dtype=torch.long)
+    device = next(model.parameters()).device
+    dummy_input = torch.randint(
+        1, 100, (batch_size, maxlen), dtype=torch.long, device=device
+    )
     torch.onnx.export(
         wrapper,
         dummy_input,
@@ -193,7 +196,7 @@ if __name__ == "__main__":
         if use_onnx:
             onnx_file = "sasrec_model.onnx"
             export_onnx(
-                model.cpu(), maxlen=args.max_length, batch_size=1, onnx_path=onnx_file
+                model, maxlen=args.max_length, batch_size=1, onnx_path=onnx_file
             )
             predictor = ONNXPredictor(onnx_file, device=args.device)
         else:
