@@ -152,13 +152,11 @@ class SASRec(nn.Module):
                 )
             elif self.attn_types[i] in ("mamba", "m", "mamba_noff", "mnff"):
                 self.attention_layers.append(MambaLayer(hidden_units))
-            elif self.attn_types[i] in ("standard", "s"):
+            elif self.attn_types[i] == "fft":
+                self.attention_layers.append(FNetLayer(hidden_units))
+            else:
                 self.attention_layers.append(
                     nn.MultiheadAttention(hidden_units, num_heads, dropout_rate)
-                )
-            else:
-                raise ValueError(
-                    f"There is not attention of type <{self.attn_types[i]}>"
                 )
 
             if self.attn_types[i] in ("mamba_noff", "mnff"):
@@ -209,11 +207,14 @@ class SASRec(nn.Module):
             seqs_t = seqs.transpose(0, 1)
             Q = self.attention_layernorms[i](seqs_t)
 
-            mha_out, _ = self.attention_layers[i](
-                Q, seqs_t, seqs_t, attn_mask=attn_mask
-            )
-
-            seqs_t = Q + mha_out
+            if self.attn_types[i] == "fft":
+                fft_out = self.attention_layers[i](Q.transpose(0, 1))
+                seqs_t = Q + fft_out.transpose(0, 1)
+            else:    
+                mha_out, _ = self.attention_layers[i](
+                    Q, seqs_t, seqs_t, attn_mask=attn_mask
+                )
+                seqs_t = Q + mha_out
             seqs = seqs_t.transpose(0, 1)
 
             seqs = self.forward_layernorms[i](seqs)
@@ -222,3 +223,19 @@ class SASRec(nn.Module):
             seqs = seqs * (~timeline_mask).unsqueeze(-1).float()
 
         return self.last_layernorm(seqs)
+
+class FNetLayer(nn.Module):
+    def __init__(self, hidden_dim: int):
+        super().__init__()
+        self.hidden_dim = hidden_dim
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        L, B, H = x.shape
+        x = x.transpose(0, 1)
+        x_fft = torch.fft.fft(x, dim=1)
+        x_spatial = torch.fft.ifft(x_fft, dim=1).real
+        x_causal = torch.cumsum(x_spatial, dim=1)
+        counts = torch.arange(1, L + 1, device=x.device).unsqueeze(-1).unsqueeze(0)
+        x_causal = x_causal / (counts + 1e-9)
+        
+        return x_causal.transpose(0, 1)

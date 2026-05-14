@@ -231,6 +231,7 @@ def main():
 
     print(f"\n{'=' * 70}")
     print("Starting training...")
+    eval_start = time.time()
     print(f"{'=' * 70}\n")
 
     start_time = time.time()
@@ -322,7 +323,7 @@ def main():
 
     for k in args.top_k:
         print(f"\n--- Test metrics @{k} ---")
-        eval_time = time.time()
+        eval_time = time.time() - eval_start
         test_metrics = evaluate(
             model,
             test_sequences,

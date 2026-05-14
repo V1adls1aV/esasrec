@@ -198,7 +198,12 @@ class FNetLayer(nn.Module):
         self.hidden_dim = hidden_dim
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        L, B, H = x.shape
         x = x.transpose(0, 1)
-        x_fft = torch.fft.fft2(x)
-        x_ifft = torch.fft.ifft2(x_fft).real
-        return x_ifft.transpose(0, 1)
+        x_fft = torch.fft.fft(x, dim=1)
+        x_spatial = torch.fft.ifft(x_fft, dim=1).real
+        x_causal = torch.cumsum(x_spatial, dim=1)
+        counts = torch.arange(1, L + 1, device=x.device).unsqueeze(-1).unsqueeze(0)
+        x_causal = x_causal / (counts + 1e-9)
+        
+        return x_causal.transpose(0, 1)
