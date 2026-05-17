@@ -227,6 +227,7 @@ class SASRec(nn.Module):
 class FNetLayer(nn.Module):
     def __init__(self, seq_len: int, hidden_dim: int):
         super().__init__()
+        self.hidden_dim = hidden_dim
         self.freq_weights = nn.Parameter(
             torch.randn(seq_len, hidden_dim, dtype=torch.cfloat) * 0.02
         )
