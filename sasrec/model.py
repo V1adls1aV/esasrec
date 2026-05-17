@@ -225,17 +225,14 @@ class SASRec(nn.Module):
         return self.last_layernorm(seqs)
 
 class FNetLayer(nn.Module):
-    def __init__(self, hidden_dim: int):
+    def __init__(self, seq_len: int, hidden_dim: int):
         super().__init__()
-        self.hidden_dim = hidden_dim
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        L, B, H = x.shape
-        x = x.transpose(0, 1)
-        x_fft = torch.fft.fft(x, dim=1)
-        x_spatial = torch.fft.ifft(x_fft, dim=1).real
-        x_causal = torch.cumsum(x_spatial, dim=1)
-        counts = torch.arange(1, L + 1, device=x.device).unsqueeze(-1).unsqueeze(0)
-        x_causal = x_causal / (counts + 1e-9)
+        self.freq_weights = nn.Parameter(
+            torch.randn(seq_len, hidden_dim, dtype=torch.cfloat) * 0.02
+        )
         
-        return x_causal.transpose(0, 1)
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x_fft = torch.fft.fft(x, dim=1)
+        x_filtered = x_fft * self.freq_weights
+        x_spatial = torch.fft.ifft(x_filtered, dim=1).real
+        return x_spatial
