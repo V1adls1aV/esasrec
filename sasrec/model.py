@@ -153,7 +153,7 @@ class SASRec(nn.Module):
             elif self.attn_types[i] in ("mamba", "m", "mamba_noff", "mnff"):
                 self.attention_layers.append(MambaLayer(hidden_units))
             elif self.attn_types[i] == "fft":
-                self.attention_layers.append(FNetLayer(hidden_units))
+                self.attention_layers.append(FNetLayer(maxlen, hidden_units))
             else:
                 self.attention_layers.append(
                     nn.MultiheadAttention(hidden_units, num_heads, dropout_rate)

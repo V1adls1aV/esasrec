@@ -77,7 +77,7 @@ def run_latency(predictor, maxlen, num_requests=1000):
 
 def run_throughput(predictor, maxlen, num_batches=100):
     print("--- DYNAMIC THROUGHPUT BENCHMARK ---")
-    batch_sizes = [64, 128, 256, 512, 1024, 2048]
+    batch_sizes = [32, 64, 128, 256, 512, 1024, 2048]
     best_batch_size = 0
     best_throughput = 0.0
 

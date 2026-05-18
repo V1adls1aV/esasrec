@@ -64,3 +64,60 @@ nohup python3 -m sasrec.train --dataset ml-20m --attn_types m,m,m,m --layers_mas
 
 nohup python3 -m sasrec.train --dataset ml-20m --attn_types m,mnff,m,mnff --layers_mask 1100,20 --num_heads 4 --num_negatives 256 --batch_size 512 --device cuda --max_length 200 --save_dir checkpoints/m-mnff-m-mnff > /dev/null 2> checkpoints/errors_m_mnff_m_mnff.log &
 ```
+
+====
+
+python3 -m sasrec.benchmark --attn_types s,s,s,s --num_heads 4 --max_length 200 --mode latency
+
+1.26
+1.23
+2.65
+
+python3 -m sasrec.benchmark --attn_types mnff,mnff,mnff,mnff --num_heads 4 --max_length 200 --mode latency
+
+0.68
+0.69
+0.74
+
+
+python3 -m sasrec.benchmark --attn_types s,s,s,s --num_heads 4 --max_length 200 --mode throughput
+
+13066
+4972
+523
+
+python3 -m sasrec.benchmark --attn_types mnff,mnff,mnff,mnff --num_heads 4 --max_length 200 --mode throughput
+
+20539
+11035
+3361
+
+
+--------------------------------------------------------------
+
+python3 -m sasrec.benchmark --attn_types s,s,s,s --num_heads 4 --max_length 200 --mode throughput --no-onnx
+
+8356
+3060
+294
+
+python3 -m sasrec.benchmark --attn_types s,s,s,s --num_heads 4 --max_length 200 --mode latency --no-onnx
+
+3.20
+3.22
+4.86
+
+
+===
+
+python3 -m sasrec.benchmark --attn_types s,fft,s,fft --num_heads 4 --max_length 200 --mode latency --no-onnx
+
+3.20 / 2.55
+3.22 / 2.60
+4.86 / 3.02
+
+python3 -m sasrec.benchmark --attn_types s,fft,s,fft --num_heads 4 --max_length 200 --mode throughput --no-onnx
+
+9731 / 8356
+6016 / 3060
+3587 / 294
